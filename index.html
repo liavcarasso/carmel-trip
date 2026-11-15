@@ -734,6 +734,10 @@ button{font:inherit;color:inherit}
 .item .bd{flex:1;min-width:0}
 .item .t1{font-weight:700;font-size:15.5px}
 .item .t2{font-size:13px;color:var(--muted);margin-top:1px}
+.item .tm{flex:none;min-width:58px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px}
+.item .tm b{font-size:17px;font-variant-numeric:tabular-nums}
+.item .tm span{font-size:11.5px;font-weight:700;white-space:nowrap}
+.ok{color:#2e7d4f;font-weight:700}.late{color:#d93a2b;font-weight:700}
 .tg{font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;margin-inline-start:4px;vertical-align:1px}
 .tg.water{background:#e8f1fb;color:var(--water)}.tg.camp{background:#f1ebf8;color:var(--camp)}.tg.bus{background:#fbf3df;color:var(--bus)}.tg.food{background:#f3efe6;color:#6b5a2e}.tg.warn{background:#fff1d6;color:#8a5200}
 h3{font-size:17px;margin:14px 0 6px}
@@ -863,6 +867,11 @@ const hm = (h,m) => { const d=new Date(); d.setHours(h,m,0,0); return d; };
 const ICONS = {water:'💧', camp:'⛺', bus:'🚌', food:'🍽️', warn:'⚠️', none:'📍'};
 const TAGN = {water:'מים', camp:'לינה', bus:'תחנה', food:'אוכל', warn:'שימו לב'};
 const SUN = {1:[16,39], 2:[16,38]};
+const PLAN = {1:['07:40','07:55','09:35','10:05','10:25','11:00','12:10','12:45','13:50','14:30','15:20'], 2:['07:30','07:40','08:20','09:50','10:30','11:40','12:10','12:45','13:15']};
+const planDate = s => { const [h,m]=s.split(':').map(Number); return hm(h,m); };
+function delta(i){ const p=PLAN[day][i], st=DAYS[day].st[i]; if(!p||prog.m==null||st.m<prog.m-25) return null; const e=etaTo(st.m); if(!e) return null;
+  const pd=planDate(p); let d=Math.round(((e.getHours()*60+e.getMinutes())-(pd.getHours()*60+pd.getMinutes()))); if(d>720) d-=1440; if(d<-720) d+=1440; return d; }
+const deltaHTML = d => d==null ? '' : Math.abs(d)<=10 ? '<span class="ok">בזמן</span>' : d>0 ? `<span class="late">מאחרים ${d} דק'</span>` : `<span class="ok">מקדימים ${-d} דק'</span>`;
 
 /* ---------- days ---------- */
 const DAYS = {
@@ -1093,7 +1102,7 @@ function update(){
   } else {
     const ni=nextStop();
     if(ni==null){ ic.textContent='🏁'; big.textContent='הגעתם · '+dy.dest; sm.textContent= day===1?'מקימים אוהלים לפני השקיעה':`האוטובוס הבא: ${(()=>{const i=nextBusAfter(now());return i<0?'אין עוד היום':BUS694[i].map(x=>String(x).padStart(2,'0')).join(':');})()}`; }
-    else { const s=dy.st[ni], dm=s.m-m, e=etaTo(s.m); ic.textContent=ICONS[s.t]||'📍'; big.textContent=s.n; sm.textContent=`${fmtD(dm)} · בערך ${fmtT(e)}`; }
+    else { const s=dy.st[ni], dm=s.m-m, e=etaTo(s.m), dl=delta(ni); ic.textContent=ICONS[s.t]||'📍'; big.textContent=s.n; sm.textContent=`${fmtD(dm)} · צפי ${fmtT(e)} · יעד ${PLAN[day][ni]||'—'}`+(dl!=null&&dl>10?` (מאחרים ${dl} דק')`:''); }
   }
   const w=nextWater(); if(w) chips.push(`<div class="chip w">💧 ${fmtD(w.m-m)}</div>`);
   chips.push(`<div class="chip">${dy.destIc} ${fmtD(rem)} · ${fmtT(etaEnd)}</div>`);
@@ -1151,7 +1160,7 @@ const thumb = ph => ph && D.photos[ph] && D.photos[ph].data ? `<img class="th" s
 const tags = t => t && TAGN[t] ? `<span class="tg ${t}">${TAGN[t]}</span>` : '';
 function renderLists(){
   const dy=DAYS[day];
-  $('#pStops').innerHTML = dy.st.map((s,i)=>`<div class="item" data-i="${i}"><div class="n">${i+1}</div>${thumb(s.ph)}<div class="bd"><div class="t1">${s.n}${tags(s.t)}</div><div class="t2" id="sd${i}">${s.m<0?'לפני תחילת השביל':'ק"מ '+(s.m/1000).toFixed(1)}</div></div></div>`).join('');
+  $('#pStops').innerHTML = `<div class="small" style="padding:6px 0 2px">משמאל: השעה שבה כדאי להיות בכל תחנה לפי התוכנית, וסימון אם אתם בזמן.</div>` + dy.st.map((s,i)=>`<div class="item" data-i="${i}"><div class="n">${i+1}</div>${thumb(s.ph)}<div class="bd"><div class="t1">${s.n}${tags(s.t)}</div><div class="t2" id="sd${i}">${s.m<0?'לפני תחילת השביל':'ק"מ '+(s.m/1000).toFixed(1)}</div></div><div class="tm"><b>${PLAN[day][i]||''}</b><span id="sdl${i}"></span></div></div>`).join('');
   $$('#pStops .item').forEach(el=>el.addEventListener('click',()=>openStop(+el.dataset.i)));
   const ws=waterForDay();
   $('#pWater').innerHTML = `<div class="card small">ממלאים בכל ברזייה, גם אם הבקבוק לא ריק. 2.5 ליטר לאדם מספיקים בין הנקודות.</div>` + ws.map((w,i)=>`<div class="item" data-i="${i}"><div class="n" style="background:${C.water}">💧</div><div class="bd"><div class="t1">${w.n}</div><div class="t2" id="wd${i}">ק"מ ${(w.m/1000).toFixed(1)}</div></div></div>`).join('');
@@ -1163,14 +1172,15 @@ function markLists(){
   dy.st.forEach((s,i)=>{ const el=document.querySelector(`#pStops .item[data-i="${i}"]`); if(!el) return; const t=$('#sd'+i);
     if(prog.m==null){ el.classList.remove('done','next'); return; }
     const d=s.m-prog.m; el.classList.toggle('done', d<-25); el.classList.toggle('next', i===ni);
-    t.textContent = d<-25 ? 'עברתם' : (s.m<0?'לפני תחילת השביל':`בעוד ${fmtD(d)} · בערך ${fmtT(etaTo(s.m))}`); });
+    t.textContent = d<-25 ? 'עברתם' : (s.m<0?'לפני תחילת השביל':`בעוד ${fmtD(d)} · צפי ${fmtT(etaTo(s.m))}`);
+    const dl=$('#sdl'+i); if(dl) dl.innerHTML = d<-25 ? '<span class="ok">✓</span>' : deltaHTML(delta(i)); });
   waterForDay().forEach((w,i)=>{ const el=document.querySelector(`#pWater .item[data-i="${i}"]`); if(!el||prog.m==null) return; const d=w.m-prog.m; el.classList.toggle('done',d<-20); $('#wd'+i).textContent=d<-20?'עברתם':`בעוד ${fmtD(d)} · בערך ${fmtT(etaTo(w.m))}`; });
 }
 function openStop(i){
   const s=DAYS[day].st[i], ph=s.ph&&D.photos[s.ph];
   const dist = prog.m==null||s.m<0 ? '' : (s.m-prog.m<-25?'עברתם את התחנה':`בעוד ${fmtD(s.m-prog.m)} לאורך השביל · בערך ${fmtT(etaTo(s.m))}`);
   $('#detailBody').innerHTML = `${ph&&ph.data?`<img class="hero" src="${ph.data}" alt=""><div class="credit">צילום: ${ph.artist} · ${ph.lic}</div>`:''}
-    <h2 style="margin:12px 0 4px">${i+1}. ${s.n} ${tags(s.t)}</h2><div class="small">${s.m<0?'לפני תחילת השביל':'ק"מ '+(s.m/1000).toFixed(1)+' ביום '+day}${dist?' · '+dist:''}</div>
+    <h2 style="margin:12px 0 4px">${i+1}. ${s.n} ${tags(s.t)}</h2>${PLAN[day][i]?`<div style="font-size:16px;margin-bottom:4px">שעת יעד: <b>${PLAN[day][i]}</b> ${deltaHTML(delta(i))}</div>`:''}<div class="small">${s.m<0?'לפני תחילת השביל':'ק"מ '+(s.m/1000).toFixed(1)+' ביום '+day}${dist?' · '+dist:''}</div>
     <p style="font-size:16px;line-height:1.55">${s.p}</p>
     <div class="row2"><button class="big-btn" id="dGo">הצג במפה</button><button class="big-btn lite" id="dClose">סגור</button></div>`;
   $('#detail').classList.remove('hide');
